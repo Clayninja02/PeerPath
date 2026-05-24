@@ -7,8 +7,7 @@ export const api = {
         const headers = {
             'Content-Type': 'application/json',
         };
-        
-        // If we have a JWT token stored, automatically attach it as a Bearer token!
+
         if (token) {
             headers['Authorization'] = `Bearer ${token}`;
         }
@@ -19,12 +18,21 @@ export const api = {
             body: JSON.stringify(data),
         });
 
-        const responseData = await response.json();
-        
-        if (!response.ok) {
-            throw new Error(responseData.message || 'Something went wrong');
+        // Safely parse JSON — server might return empty body or HTML on errors
+        let responseData = null;
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+            responseData = await response.json();
         }
-        
+
+        if (!response.ok) {
+            throw new Error(
+                (responseData && responseData.message)
+                    ? responseData.message
+                    : `Server error: ${response.status}`
+            );
+        }
+
         return responseData;
     },
 
@@ -42,10 +50,19 @@ export const api = {
             headers: headers,
         });
 
-        const responseData = await response.json();
+        // Safely parse JSON
+        let responseData = null;
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+            responseData = await response.json();
+        }
 
         if (!response.ok) {
-            throw new Error(responseData.message || 'Failed to fetch data');
+            throw new Error(
+                (responseData && responseData.message)
+                    ? responseData.message
+                    : `Server error: ${response.status}`
+            );
         }
 
         return responseData;

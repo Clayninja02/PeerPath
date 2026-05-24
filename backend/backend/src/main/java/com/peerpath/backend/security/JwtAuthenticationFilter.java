@@ -24,43 +24,57 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private CustomUserDetailsService userDetailsService;
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+    protected void doFilterInternal(HttpServletRequest request,
+            HttpServletResponse response,
+            FilterChain filterChain)
             throws ServletException, IOException {
+
+        // Handle CORS preflight requests properly with required headers
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
-        response.setStatus(HttpServletResponse.SC_OK);
-        return;
+            response.setHeader("Access-Control-Allow-Origin", "*");
+            response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+            response.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
+            response.setHeader("Access-Control-Max-Age", "3600");
+            response.setStatus(HttpServletResponse.SC_OK);
+            return;
         }
 
-        // 1. Look for the "Authorization" header
+        // 1. Look for the Authorization header
         final String authHeader = request.getHeader("Authorization");
         String email = null;
         String jwt = null;
 
         // 2. Check if it exists and starts with "Bearer "
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            jwt = authHeader.substring(7); // Cut off the word "Bearer " to get just the token
+            jwt = authHeader.substring(7);
             try {
-                email = jwtUtil.extractEmail(jwt); // Extract the user's email from the token
+                email = jwtUtil.extractEmail(jwt);
             } catch (Exception e) {
-                System.out.println("Invalid JWT Token!");
+                System.out.println("⚠️ [JWT] Invalid or expired token: " + e.getMessage());
             }
         }
 
-        // 3. If we found an email, and the user isn't already logged in...
+        // 3. If email found and user not already authenticated
         if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            UserDetails userDetails = this.userDetailsService.loadUserByUsername(email);
+            try {
+                UserDetails userDetails = this.userDetailsService.loadUserByUsername(email);
 
-            // 4. Validate the token
-            if (jwtUtil.validateToken(jwt, userDetails.getUsername())) {
-                // Token is good! Tell Spring Security this user is officially authenticated
-                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                        userDetails, null, userDetails.getAuthorities());
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authToken);
+                // 4. Validate token
+                if (jwtUtil.validateToken(jwt, userDetails.getUsername())) {
+                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                            userDetails,
+                            null,
+                            userDetails.getAuthorities());
+                    authToken.setDetails(
+                            new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                }
+            } catch (Exception e) {
+                System.out.println("⚠️ [JWT] Authentication failed: " + e.getMessage());
             }
         }
-        
-        // 5. Let the request continue to the Controller
+
+        // 5. Continue the filter chain
         filterChain.doFilter(request, response);
     }
 }

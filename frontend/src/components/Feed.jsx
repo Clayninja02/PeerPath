@@ -371,7 +371,7 @@ export default function Feed() {
                                                         <h5 className="font-bold text-sm mt-0.5">{res.title}</h5>
                                                     </div>
                                                     {res.url && (
-                                                        
+                                                        <a
                                                             href={res.url}
                                                             target="_blank"
                                                             rel="noreferrer"

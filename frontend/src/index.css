@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+/* 🌌 Advanced Animation Layers */
+@keyframes gradientMove {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes floatSlow {
+  0% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-18px) rotate(6deg); }
+  100% { transform: translateY(0px) rotate(0deg); }
+}
+
+@keyframes floatReverse {
+  0% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(14px) rotate(-8deg); }
+  100% { transform: translateY(0px) rotate(0deg); }
+}
+
+/* Base structural layouts */
+.mesh-base {
+  background-size: 400% 400%;
+  animation: gradientMove 16s ease infinite;
+}
+
+.animate-float-1 {
+  animation: floatSlow 8s ease-in-out infinite;
+}
+
+.animate-float-2 {
+  animation: floatReverse 10s ease-in-out infinite;
+}
+
+/* Clean, standard scroll-behavior */
+html {
+  scroll-behavior: smooth;
+}

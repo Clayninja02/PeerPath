@@ -1,0 +1,1 @@
+[2026-05-18 20:54:20] ADMIN: SuperAdmin1 | ACTION: Deleted blacklisted domain: badsite.com

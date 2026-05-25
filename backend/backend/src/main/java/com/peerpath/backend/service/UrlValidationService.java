@@ -13,15 +13,19 @@ public class UrlValidationService {
     @Autowired
     private BlacklistedDomainRepository blacklistRepo;
 
-    // The @Async annotation tells Spring to run this method on a separate background thread!
+    // The @Async annotation tells Spring to run this method on a separate
+    // background thread!
     @Async
     public void validateResourceLinksInBackground(Long postId, String url) {
-        // Logging the thread name is great for your project report to prove you used threads!
-        System.out.println("🧵 [THREAD: " + Thread.currentThread().getName() + "] Starting background URL check for: " + url);
+        // Logging the thread name is great for your project report to prove you used
+        // threads!
+        System.out.println(
+                "🧵 [THREAD: " + Thread.currentThread().getName() + "] Starting background URL check for: " + url);
 
         try {
-            // Simulate processing time (so we can actually see the thread working in the background)
-            Thread.sleep(2000); 
+            // Simulate processing time (so we can actually see the thread working in the
+            // background)
+            Thread.sleep(2000);
 
             // Extract the domain from the URL
             URI uri = new URI(url);
@@ -36,8 +40,8 @@ public class UrlValidationService {
 
             if (isBlacklisted) {
                 System.out.println("🚨 [WARNING] Blacklisted domain detected in background: " + domain);
-                // TODO: Later, we will add code here to auto-flag the post or delete the resource!
-            } else {
+                // Future Feature: Later, we will add code here to auto-flag the post or delete
+                // the resource.
                 System.out.println("✅ [CLEAN] URL passed background validation: " + domain);
             }
 

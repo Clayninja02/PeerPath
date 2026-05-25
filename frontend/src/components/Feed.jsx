@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
 
@@ -36,26 +36,37 @@ export default function Feed() {
 
     const navigate = useNavigate();
 
-    const fetchPosts = useCallback(async () => {
-        setIsLoadingPosts(true);
-        try {
-            const data = await api.get('/posts');
-            setPosts(data || []);
-        } catch (_err) {
-            console.error('Error fetching posts:', _err.message);
-        } finally {
-            setIsLoadingPosts(false);
-        }
-    }, []);
-
+    // FIX: Moved fetch logic inside useEffect to prevent synchronous set-state errors
     useEffect(() => {
         const token = localStorage.getItem('token');
         if (!token) {
             navigate('/login');
             return;
         }
-        fetchPosts();
-    }, [navigate, fetchPosts]);
+
+        let isMounted = true;
+
+        const loadPosts = async () => {
+            try {
+                const data = await api.get('/posts');
+                if (isMounted) {
+                    setPosts(data || []);
+                }
+            } catch (error) {
+                console.error('Error fetching posts:', error.message);
+            } finally {
+                if (isMounted) {
+                    setIsLoadingPosts(false);
+                }
+            }
+        };
+
+        loadPosts();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [navigate]);
 
     const toggleTheme = () => {
         const newMode = !darkMode;
@@ -126,8 +137,8 @@ export default function Feed() {
             setSkills([]);
             setSteps([]);
             setShowCreateModal(false);
-        } catch (_err) {
-            alert('Failed to publish: ' + _err.message);
+        } catch (error) {
+            alert('Failed to publish: ' + error.message);
         } finally {
             setIsPublishing(false);
         }
@@ -137,8 +148,9 @@ export default function Feed() {
         setPosts(prev => prev.map(p => p.id === postId ? { ...p, likes: p.likes + 1 } : p));
         try {
             await api.post(`/posts/${postId}/like`);
-        } catch (_err) {
-            // optimistic update already applied
+        } catch (error) {
+            setPosts(prev => prev.map(p => p.id === postId ? { ...p, likes: p.likes - 1 } : p));
+            alert('Failed to like post: ' + error.message);
         }
     };
 
@@ -146,8 +158,8 @@ export default function Feed() {
         try {
             await api.post(`/posts/${postId}/follow`);
             alert('Path bookmarked successfully!');
-        } catch (_err) {
-            alert('Guide bookmarked to profile!');
+        } catch (error) {
+            alert('Failed to bookmark: ' + error.message);
         }
     };
 
@@ -178,7 +190,9 @@ export default function Feed() {
         try {
             const data = await api.get(`/posts/${postId}/comments`);
             setPostComments(prev => ({ ...prev, [postId]: data || [] }));
-        } catch (_err) {
+        } catch (error) {
+            // FIX: Removed unused _err variable and added proper error logging
+            console.error('Failed to load comments:', error);
             setPostComments(prev => ({ ...prev, [postId]: [] }));
         }
     };
@@ -191,10 +205,8 @@ export default function Feed() {
             setPostComments(prev => ({ ...prev, [postId]: [...(prev[postId] || []), newComment] }));
             setCommentInputs(prev => ({ ...prev, [postId]: '' }));
             setPosts(prev => prev.map(p => p.id === postId ? { ...p, replies: p.replies + 1 } : p));
-        } catch (_err) {
-            const fallback = { id: Date.now(), authorName: user.u_name || 'Student', content: txt, createdAt: new Date() };
-            setPostComments(prev => ({ ...prev, [postId]: [...(prev[postId] || []), fallback] }));
-            setCommentInputs(prev => ({ ...prev, [postId]: '' }));
+        } catch (error) {
+            alert('Failed to post comment: ' + error.message);
         }
     };
 
@@ -207,7 +219,9 @@ export default function Feed() {
         try {
             const data = await api.get(`/posts/${postId}/chat`);
             setPostChatMessages(prev => ({ ...prev, [postId]: data || [] }));
-        } catch (_err) {
+        } catch (error) {
+            // FIX: Removed unused _err variable and added proper error logging
+            console.error('Failed to load chat:', error);
             setPostChatMessages(prev => ({ ...prev, [postId]: [] }));
         }
     };
@@ -219,10 +233,8 @@ export default function Feed() {
             const newMsg = await api.post(`/posts/${postId}/chat`, { message: msgTxt });
             setPostChatMessages(prev => ({ ...prev, [postId]: [...(prev[postId] || []), newMsg] }));
             setChatInputs(prev => ({ ...prev, [postId]: '' }));
-        } catch (_err) {
-            const mock = { id: Date.now(), senderName: user.u_name || 'Student', message: msgTxt, timestamp: new Date() };
-            setPostChatMessages(prev => ({ ...prev, [postId]: [...(prev[postId] || []), mock] }));
-            setChatInputs(prev => ({ ...prev, [postId]: '' }));
+        } catch (error) {
+            alert('Failed to send message: ' + error.message);
         }
     };
 
@@ -371,7 +383,7 @@ export default function Feed() {
                                                         <h5 className="font-bold text-sm mt-0.5">{res.title}</h5>
                                                     </div>
                                                     {res.url && (
-                                                        <a
+                                                        <a 
                                                             href={res.url}
                                                             target="_blank"
                                                             rel="noreferrer"

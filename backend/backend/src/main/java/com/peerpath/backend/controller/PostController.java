@@ -34,6 +34,7 @@ public class PostController {
     // GET ALL POSTS
     // ==========================================
     @GetMapping
+    @Transactional(readOnly = true) // FIX: Prevents LazyInitializationException when parsing resources into JSON
     public ResponseEntity<List<Post>> getAllPosts() {
         return ResponseEntity.ok(postRepository.findAllByOrderByCreatedAtDesc());
     }
@@ -45,12 +46,12 @@ public class PostController {
     @Transactional
     public ResponseEntity<?> createPost(@RequestBody PostRequest payload) {
 
-        // 1. Get the real author name from the JWT token via Spring Security
+        // 1. Get the real author name safely (FIX: Added null fallback)
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String authorEmail = authentication.getName(); // This is the email from JWT
+        String authorEmail = (authentication != null && authentication.getName() != null) 
+                             ? authentication.getName() 
+                             : "UnknownUser";
 
-        // Use the email username part as display name if no better option
-        // Later you can look up user.getuName() from UserRepository if preferred
         String authorName = authorEmail.contains("@")
                 ? authorEmail.substring(0, authorEmail.indexOf("@"))
                 : authorEmail;
@@ -80,7 +81,7 @@ public class PostController {
         newPost.setAuthorName(authorName);
         newPost.setSkill(skill);
 
-        // 5. Attach Resources and trigger background URL validation
+        // 5. Attach Resources (Hold off on background validation until saved)
         if (payload.getResources() != null) {
             for (ResourceRequest req : payload.getResources()) {
                 Resource resource = new Resource();
@@ -89,16 +90,21 @@ public class PostController {
                 resource.setType(req.getType() != null ? req.getType() : "article");
                 resource.setOrderNumber(req.getOrderNumber());
                 newPost.addResource(resource);
+            }
+        }
 
-                // Fire background URL validation (non-blocking)
-                if (req.getUrl() != null && !req.getUrl().trim().isEmpty()) {
-                    urlValidationService.validateResourceLinksInBackground(null, req.getUrl());
+        // 6. Save to generate DB IDs
+        Post savedPost = postRepository.save(newPost);
+
+        // 7. Fire background URL validation safely (FIX: Moved after save to utilize actual DB IDs instead of null)
+        if (savedPost.getResources() != null) {
+            for (Resource res : savedPost.getResources()) {
+                if (res.getUrl() != null && !res.getUrl().trim().isEmpty()) {
+                    urlValidationService.validateResourceLinksInBackground(res.getId(), res.getUrl());
                 }
             }
         }
 
-        // 6. Save and return
-        Post savedPost = postRepository.save(newPost);
         return ResponseEntity.status(HttpStatus.CREATED).body(savedPost);
     }
 
@@ -128,37 +134,14 @@ class PostRequest {
     private String skillName;
     private List<ResourceRequest> resources;
 
-    public String getTitle() {
-        return title;
-    }
-
-    public void setTitle(String title) {
-        this.title = title;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
-    }
-
-    public String getSkillName() {
-        return skillName;
-    }
-
-    public void setSkillName(String skillName) {
-        this.skillName = skillName;
-    }
-
-    public List<ResourceRequest> getResources() {
-        return resources;
-    }
-
-    public void setResources(List<ResourceRequest> resources) {
-        this.resources = resources;
-    }
+    public String getTitle() { return title; }
+    public void setTitle(String title) { this.title = title; }
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
+    public String getSkillName() { return skillName; }
+    public void setSkillName(String skillName) { this.skillName = skillName; }
+    public List<ResourceRequest> getResources() { return resources; }
+    public void setResources(List<ResourceRequest> resources) { this.resources = resources; }
 }
 
 class ResourceRequest {
@@ -167,35 +150,12 @@ class ResourceRequest {
     private String url;
     private int orderNumber;
 
-    public String getType() {
-        return type;
-    }
-
-    public void setType(String type) {
-        this.type = type;
-    }
-
-    public String getTitle() {
-        return title;
-    }
-
-    public void setTitle(String title) {
-        this.title = title;
-    }
-
-    public String getUrl() {
-        return url;
-    }
-
-    public void setUrl(String url) {
-        this.url = url;
-    }
-
-    public int getOrderNumber() {
-        return orderNumber;
-    }
-
-    public void setOrderNumber(int orderNumber) {
-        this.orderNumber = orderNumber;
-    }
+    public String getType() { return type; }
+    public void setType(String type) { this.type = type; }
+    public String getTitle() { return title; }
+    public void setTitle(String title) { this.title = title; }
+    public String getUrl() { return url; }
+    public void setUrl(String url) { this.url = url; }
+    public int getOrderNumber() { return orderNumber; }
+    public void setOrderNumber(int orderNumber) { this.orderNumber = orderNumber; }
 }

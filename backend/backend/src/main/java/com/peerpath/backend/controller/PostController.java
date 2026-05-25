@@ -37,7 +37,9 @@ public class PostController {
     @Autowired
     private PostChatMessageRepository postChatMessageRepository;
     @Autowired
-    private HiddenPostRepository hiddenPostRepository; // NEW INJECTION
+    private HiddenPostRepository hiddenPostRepository;
+    @Autowired
+    private PathProgressRepository pathProgressRepository; // NEW INJECTION
     @Autowired
     private UrlValidationService urlValidationService;
 
@@ -49,9 +51,6 @@ public class PostController {
         return userRepository.findByEmail(auth.getName()).orElse(null);
     }
 
-    // ==========================================
-    // GET ALL POSTS (NOW EXCLUDES HIDDEN POSTS)
-    // ==========================================
     @GetMapping
     @Transactional(readOnly = true)
     public ResponseEntity<List<Post>> getAllPosts() {
@@ -59,19 +58,47 @@ public class PostController {
         List<Post> allPosts = postRepository.findAllByOrderByCreatedAtDesc();
 
         if (currentUser != null) {
-            // Find IDs of posts the user has hidden
-            List<Long> hiddenPostIds = hiddenPostRepository.findByUser(currentUser)
-                    .stream()
-                    .map(hp -> hp.getPost().getId())
-                    .collect(Collectors.toList());
-
-            // Filter them out
-            allPosts = allPosts.stream()
-                    .filter(p -> !hiddenPostIds.contains(p.getId()))
-                    .collect(Collectors.toList());
+            List<Long> hiddenPostIds = hiddenPostRepository.findByUser(currentUser).stream()
+                    .map(hp -> hp.getPost().getId()).collect(Collectors.toList());
+            allPosts = allPosts.stream().filter(p -> !hiddenPostIds.contains(p.getId())).collect(Collectors.toList());
         }
-
         return ResponseEntity.ok(allPosts);
+    }
+
+    // ==========================================
+    // GET SINGLE POST FOR VIEWER (NEW)
+    // ==========================================
+    @GetMapping("/{id}")
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> getPostById(@PathVariable Long id) {
+        Post post = postRepository.findById(id).orElse(null);
+        if (post == null)
+            return ResponseEntity.notFound().build();
+        return ResponseEntity.ok(post);
+    }
+
+    @GetMapping("/me")
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> getMyPosts() {
+        User currentUser = getAuthenticatedUser();
+        if (currentUser == null)
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+
+        List<Post> myPosts = postRepository.findAllByOrderByCreatedAtDesc().stream()
+                .filter(p -> p.getAuthorName().equals(currentUser.getuName())).collect(Collectors.toList());
+        return ResponseEntity.ok(myPosts);
+    }
+
+    @GetMapping("/saved")
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> getSavedPosts() {
+        User currentUser = getAuthenticatedUser();
+        if (currentUser == null)
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+
+        List<Post> savedPosts = followPathRepository.findByUser(currentUser).stream()
+                .map(FollowPath::getPost).collect(Collectors.toList());
+        return ResponseEntity.ok(savedPosts);
     }
 
     @PostMapping
@@ -88,7 +115,6 @@ public class PostController {
         String skillName = (payload.getSkillName() != null && !payload.getSkillName().trim().isEmpty())
                 ? payload.getSkillName().trim()
                 : "General Engineering";
-
         Skill skill = skillRepository.findBysName(skillName).orElseGet(() -> {
             Skill newSkill = new Skill();
             newSkill.setsName(skillName);
@@ -142,7 +168,6 @@ public class PostController {
         String skillName = (payload.getSkillName() != null && !payload.getSkillName().trim().isEmpty())
                 ? payload.getSkillName().trim()
                 : "General Engineering";
-
         Skill skill = skillRepository.findBysName(skillName).orElseGet(() -> {
             Skill newSkill = new Skill();
             newSkill.setsName(skillName);
@@ -166,13 +191,6 @@ public class PostController {
         }
 
         Post savedPost = postRepository.save(post);
-        if (savedPost.getResources() != null) {
-            for (Resource res : savedPost.getResources()) {
-                if (res.getUrl() != null && !res.getUrl().trim().isEmpty()) {
-                    urlValidationService.validateResourceLinksInBackground(res.getId(), res.getUrl());
-                }
-            }
-        }
         return ResponseEntity.ok(savedPost);
     }
 
@@ -197,15 +215,13 @@ public class PostController {
         postChatMessageRepository.deleteAll(postChatMessageRepository.findByPostOrderByCreatedAtDesc(post));
         likeDislikeRepository.deleteAll(likeDislikeRepository.findByPost(post));
         followPathRepository.deleteAll(followPathRepository.findByPost(post));
-        hiddenPostRepository.deleteAll(hiddenPostRepository.findByPost(post)); // NEW CLEANUP
+        hiddenPostRepository.deleteAll(hiddenPostRepository.findByPost(post));
+        pathProgressRepository.deleteAll(pathProgressRepository.findByPost(post)); // NEW CLEANUP
 
         postRepository.delete(post);
         return ResponseEntity.ok(Map.of("message", "Post deleted successfully"));
     }
 
-    // ==========================================
-    // HIDE POST (NEW)
-    // ==========================================
     @PostMapping("/{id}/hide")
     @Transactional
     public ResponseEntity<?> hidePost(@PathVariable Long id) {
@@ -217,15 +233,12 @@ public class PostController {
         if (post == null)
             return ResponseEntity.notFound().build();
 
-        Optional<HiddenPost> existingHidden = hiddenPostRepository.findByUserAndPost(user, post);
-
-        if (existingHidden.isEmpty()) {
+        if (hiddenPostRepository.findByUserAndPost(user, post).isEmpty()) {
             HiddenPost hiddenPost = new HiddenPost();
             hiddenPost.setUser(user);
             hiddenPost.setPost(post);
             hiddenPostRepository.save(hiddenPost);
         }
-
         return ResponseEntity.ok(Map.of("message", "Post permanently hidden"));
     }
 
@@ -258,149 +271,6 @@ public class PostController {
         return ResponseEntity.ok(Map.of("likes", post.getLikes()));
     }
 
-    @GetMapping("/{id}/comments")
-    @Transactional(readOnly = true)
-    public ResponseEntity<?> getComments(@PathVariable Long id) {
-        Post post = postRepository.findById(id).orElse(null);
-        if (post == null)
-            return ResponseEntity.notFound().build();
-
-        List<CommentResponse> comments = commentRepository.findByPostOrderByCreatedAtDesc(post)
-                .stream()
-                .map(c -> new CommentResponse(c.getCommentId(), c.getContent(), c.getUser().getuName(),
-                        c.getCreatedAt()))
-                .collect(Collectors.toList());
-
-        return ResponseEntity.ok(comments);
-    }
-
-    @PostMapping("/{id}/comments")
-    @Transactional
-    public ResponseEntity<?> addComment(@PathVariable Long id, @RequestBody Map<String, String> payload) {
-        User user = getAuthenticatedUser();
-        if (user == null)
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-
-        Post post = postRepository.findById(id).orElse(null);
-        if (post == null)
-            return ResponseEntity.notFound().build();
-
-        String content = payload.get("content");
-        if (content == null || content.trim().isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of("message", "Comment cannot be empty"));
-        }
-
-        Comment comment = new Comment();
-        comment.setUser(user);
-        comment.setPost(post);
-        comment.setContent(content.trim());
-        Comment savedComment = commentRepository.save(comment);
-
-        post.setReplies(post.getReplies() + 1);
-        postRepository.save(post);
-
-        return ResponseEntity.ok(new CommentResponse(
-                savedComment.getCommentId(),
-                savedComment.getContent(),
-                user.getuName(),
-                savedComment.getCreatedAt()));
-    }
-
-    @PutMapping("/{postId}/comments/{commentId}")
-    @Transactional
-    public ResponseEntity<?> editComment(@PathVariable Long postId, @PathVariable Long commentId,
-            @RequestBody Map<String, String> payload) {
-        User user = getAuthenticatedUser();
-        if (user == null)
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-
-        Comment comment = commentRepository.findById(commentId).orElse(null);
-        if (comment == null || !comment.getPost().getId().equals(postId))
-            return ResponseEntity.notFound().build();
-
-        if (!comment.getUser().getUserId().equals(user.getUserId())) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(Map.of("message", "You can only edit your own comments"));
-        }
-
-        String content = payload.get("content");
-        if (content == null || content.trim().isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of("message", "Comment cannot be empty"));
-        }
-
-        comment.setContent(content.trim());
-        Comment updatedComment = commentRepository.save(comment);
-
-        return ResponseEntity.ok(new CommentResponse(updatedComment.getCommentId(), updatedComment.getContent(),
-                user.getuName(), updatedComment.getCreatedAt()));
-    }
-
-    @DeleteMapping("/{postId}/comments/{commentId}")
-    @Transactional
-    public ResponseEntity<?> deleteComment(@PathVariable Long postId, @PathVariable Long commentId) {
-        User user = getAuthenticatedUser();
-        if (user == null)
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-
-        Comment comment = commentRepository.findById(commentId).orElse(null);
-        if (comment == null || !comment.getPost().getId().equals(postId))
-            return ResponseEntity.notFound().build();
-
-        if (!comment.getUser().getUserId().equals(user.getUserId())) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(Map.of("message", "You can only delete your own comments"));
-        }
-
-        commentRepository.delete(comment);
-        Post post = comment.getPost();
-        post.setReplies(Math.max(0, post.getReplies() - 1));
-        postRepository.save(post);
-
-        return ResponseEntity.ok(Map.of("message", "Comment deleted successfully"));
-    }
-
-    @GetMapping("/{id}/chat")
-    @Transactional(readOnly = true)
-    public ResponseEntity<?> getChatMessages(@PathVariable Long id) {
-        Post post = postRepository.findById(id).orElse(null);
-        if (post == null)
-            return ResponseEntity.notFound().build();
-
-        List<ChatMessageResponse> messages = postChatMessageRepository.findByPostOrderByCreatedAtDesc(post)
-                .stream()
-                .map(m -> new ChatMessageResponse(m.getId(), m.getMessage(), m.getSender().getuName(),
-                        m.getCreatedAt()))
-                .collect(Collectors.toList());
-
-        return ResponseEntity.ok(messages);
-    }
-
-    @PostMapping("/{id}/chat")
-    @Transactional
-    public ResponseEntity<?> sendChatMessage(@PathVariable Long id, @RequestBody Map<String, String> payload) {
-        User user = getAuthenticatedUser();
-        if (user == null)
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-
-        Post post = postRepository.findById(id).orElse(null);
-        if (post == null)
-            return ResponseEntity.notFound().build();
-
-        String messageTxt = payload.get("message");
-        if (messageTxt == null || messageTxt.trim().isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of("message", "Message cannot be empty"));
-        }
-
-        PostChatMessage chatMessage = new PostChatMessage();
-        chatMessage.setPost(post);
-        chatMessage.setSender(user);
-        chatMessage.setMessage(messageTxt.trim());
-        PostChatMessage savedMessage = postChatMessageRepository.save(chatMessage);
-
-        return ResponseEntity.ok(new ChatMessageResponse(savedMessage.getId(), savedMessage.getMessage(),
-                user.getuName(), savedMessage.getCreatedAt()));
-    }
-
     @PostMapping("/{id}/follow")
     @Transactional
     public ResponseEntity<?> toggleFollow(@PathVariable Long id) {
@@ -424,6 +294,172 @@ public class PostController {
             followPathRepository.save(follow);
             return ResponseEntity.ok(Map.of("following", true, "message", "Path bookmarked successfully"));
         }
+    }
+
+    // ==========================================
+    // GET PATH PROGRESS (NEW)
+    // ==========================================
+    @GetMapping("/{id}/progress")
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> getProgress(@PathVariable Long id) {
+        User user = getAuthenticatedUser();
+        if (user == null)
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+
+        Post post = postRepository.findById(id).orElse(null);
+        if (post == null)
+            return ResponseEntity.notFound().build();
+
+        Optional<PathProgress> progress = pathProgressRepository.findByUserAndPost(user, post);
+        String completed = progress.isPresent() ? progress.get().getCompletedSteps() : "";
+
+        return ResponseEntity.ok(Map.of("completedSteps", completed));
+    }
+
+    // ==========================================
+    // UPDATE PATH PROGRESS (NEW)
+    // ==========================================
+    @PostMapping("/{id}/progress")
+    @Transactional
+    public ResponseEntity<?> updateProgress(@PathVariable Long id, @RequestBody Map<String, String> payload) {
+        User user = getAuthenticatedUser();
+        if (user == null)
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+
+        Post post = postRepository.findById(id).orElse(null);
+        if (post == null)
+            return ResponseEntity.notFound().build();
+
+        String completedSteps = payload.get("completedSteps");
+        if (completedSteps == null)
+            completedSteps = "";
+
+        PathProgress progress = pathProgressRepository.findByUserAndPost(user, post).orElseGet(() -> {
+            PathProgress newProg = new PathProgress();
+            newProg.setUser(user);
+            newProg.setPost(post);
+            return newProg;
+        });
+
+        progress.setCompletedSteps(completedSteps);
+        pathProgressRepository.save(progress);
+
+        return ResponseEntity.ok(Map.of("message", "Progress saved"));
+    }
+
+    // --- (Comments and Chat endpoints remain exactly the same) ---
+    @GetMapping("/{id}/comments")
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> getComments(@PathVariable Long id) {
+        Post post = postRepository.findById(id).orElse(null);
+        if (post == null)
+            return ResponseEntity.notFound().build();
+        List<CommentResponse> comments = commentRepository.findByPostOrderByCreatedAtDesc(post).stream()
+                .map(c -> new CommentResponse(c.getCommentId(), c.getContent(), c.getUser().getuName(),
+                        c.getCreatedAt()))
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(comments);
+    }
+
+    @PostMapping("/{id}/comments")
+    @Transactional
+    public ResponseEntity<?> addComment(@PathVariable Long id, @RequestBody Map<String, String> payload) {
+        User user = getAuthenticatedUser();
+        if (user == null)
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        Post post = postRepository.findById(id).orElse(null);
+        if (post == null)
+            return ResponseEntity.notFound().build();
+        String content = payload.get("content");
+        if (content == null || content.trim().isEmpty())
+            return ResponseEntity.badRequest().body(Map.of("message", "Comment cannot be empty"));
+
+        Comment comment = new Comment();
+        comment.setUser(user);
+        comment.setPost(post);
+        comment.setContent(content.trim());
+        Comment savedComment = commentRepository.save(comment);
+        post.setReplies(post.getReplies() + 1);
+        postRepository.save(post);
+        return ResponseEntity.ok(new CommentResponse(savedComment.getCommentId(), savedComment.getContent(),
+                user.getuName(), savedComment.getCreatedAt()));
+    }
+
+    @PutMapping("/{postId}/comments/{commentId}")
+    @Transactional
+    public ResponseEntity<?> editComment(@PathVariable Long postId, @PathVariable Long commentId,
+            @RequestBody Map<String, String> payload) {
+        User user = getAuthenticatedUser();
+        if (user == null)
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        Comment comment = commentRepository.findById(commentId).orElse(null);
+        if (comment == null || !comment.getPost().getId().equals(postId))
+            return ResponseEntity.notFound().build();
+        if (!comment.getUser().getUserId().equals(user.getUserId()))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("message", "You can only edit your own comments"));
+        String content = payload.get("content");
+        if (content == null || content.trim().isEmpty())
+            return ResponseEntity.badRequest().body(Map.of("message", "Comment cannot be empty"));
+        comment.setContent(content.trim());
+        Comment updatedComment = commentRepository.save(comment);
+        return ResponseEntity.ok(new CommentResponse(updatedComment.getCommentId(), updatedComment.getContent(),
+                user.getuName(), updatedComment.getCreatedAt()));
+    }
+
+    @DeleteMapping("/{postId}/comments/{commentId}")
+    @Transactional
+    public ResponseEntity<?> deleteComment(@PathVariable Long postId, @PathVariable Long commentId) {
+        User user = getAuthenticatedUser();
+        if (user == null)
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        Comment comment = commentRepository.findById(commentId).orElse(null);
+        if (comment == null || !comment.getPost().getId().equals(postId))
+            return ResponseEntity.notFound().build();
+        if (!comment.getUser().getUserId().equals(user.getUserId()))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("message", "You can only delete your own comments"));
+
+        commentRepository.delete(comment);
+        Post post = comment.getPost();
+        post.setReplies(Math.max(0, post.getReplies() - 1));
+        postRepository.save(post);
+        return ResponseEntity.ok(Map.of("message", "Comment deleted successfully"));
+    }
+
+    @GetMapping("/{id}/chat")
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> getChatMessages(@PathVariable Long id) {
+        Post post = postRepository.findById(id).orElse(null);
+        if (post == null)
+            return ResponseEntity.notFound().build();
+        List<ChatMessageResponse> messages = postChatMessageRepository.findByPostOrderByCreatedAtDesc(post).stream()
+                .map(m -> new ChatMessageResponse(m.getId(), m.getMessage(), m.getSender().getuName(),
+                        m.getCreatedAt()))
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(messages);
+    }
+
+    @PostMapping("/{id}/chat")
+    @Transactional
+    public ResponseEntity<?> sendChatMessage(@PathVariable Long id, @RequestBody Map<String, String> payload) {
+        User user = getAuthenticatedUser();
+        if (user == null)
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        Post post = postRepository.findById(id).orElse(null);
+        if (post == null)
+            return ResponseEntity.notFound().build();
+        String messageTxt = payload.get("message");
+        if (messageTxt == null || messageTxt.trim().isEmpty())
+            return ResponseEntity.badRequest().body(Map.of("message", "Message cannot be empty"));
+
+        PostChatMessage chatMessage = new PostChatMessage();
+        chatMessage.setPost(post);
+        chatMessage.setSender(user);
+        chatMessage.setMessage(messageTxt.trim());
+        PostChatMessage savedMessage = postChatMessageRepository.save(chatMessage);
+        return ResponseEntity.ok(new ChatMessageResponse(savedMessage.getId(), savedMessage.getMessage(),
+                user.getuName(), savedMessage.getCreatedAt()));
     }
 }
 

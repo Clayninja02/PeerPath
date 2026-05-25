@@ -432,12 +432,17 @@ const toggleChatroomBox = async (postId) => {
 
                                     {/* POST ACTIONS BUTTONS */}
                                     <div className="flex flex-wrap items-center gap-6 pt-4 border-t border-slate-300/10">
-                                        <button onClick={() => handleLikePost(post.id)} className={`text-sm font-semibold transition-colors cursor-pointer ${dm ? 'text-slate-400 hover:text-rose-400' : 'text-slate-500 hover:text-rose-600'}`}>❤️ {post.likes || 0} Likes</button>
-                                        <button onClick={() => toggleCommentsBox(post.id)} className={`text-sm font-semibold transition-colors cursor-pointer ${dm ? 'text-slate-400 hover:text-indigo-400' : 'text-slate-500 hover:text-indigo-600'}`}>💬 {post.replies || 0} Replies</button>
-                                        <button onClick={() => toggleChatroomBox(post.id)} className={`text-sm font-semibold transition-colors cursor-pointer ${dm ? 'text-slate-400 hover:text-teal-400' : 'text-slate-500 hover:text-teal-600'}`}>⚡ Live Chat</button>
-                                        <button onClick={() => handleFollowPost(post.id)} className={`text-sm font-semibold transition-colors cursor-pointer ${dm ? 'text-slate-400 hover:text-amber-400' : 'text-slate-500 hover:text-amber-600'}`}>⭐ Follow Progress</button>
-                                        <button onClick={() => handleRepostMod(post)} className={`text-sm font-semibold transition-colors cursor-pointer ml-auto ${dm ? 'text-indigo-400 hover:text-indigo-300' : 'text-[#0f1d3d] hover:text-[#1d356b]'}`}>🔄 Repost</button>
-                                    </div>
+    <button onClick={() => handleLikePost(post.id)} className={`text-sm font-semibold transition-colors cursor-pointer ${dm ? 'text-slate-400 hover:text-rose-400' : 'text-slate-500 hover:text-rose-600'}`}>❤️ {post.likes || 0} Likes</button>
+    <button onClick={() => toggleCommentsBox(post.id)} className={`text-sm font-semibold transition-colors cursor-pointer ${dm ? 'text-slate-400 hover:text-indigo-400' : 'text-slate-500 hover:text-indigo-600'}`}>💬 {post.replies || 0} Replies</button>
+    <button onClick={() => toggleChatroomBox(post.id)} className={`text-sm font-semibold transition-colors cursor-pointer ${dm ? 'text-slate-400 hover:text-teal-400' : 'text-slate-500 hover:text-teal-600'}`}>⚡ Live Chat</button>
+    <button onClick={() => handleFollowPost(post.id)} className={`text-sm font-semibold transition-colors cursor-pointer ${dm ? 'text-slate-400 hover:text-amber-400' : 'text-slate-500 hover:text-amber-600'}`}>⭐ Follow Progress</button>
+
+    <button onClick={() => navigate(`/blueprint/${post.id}`)} className={`px-4 py-1.5 rounded-lg text-sm font-bold text-white transition-transform hover:scale-105 ${dm ? 'bg-indigo-600' : 'bg-[#0f1d3d]'}`}>
+        📖 Start Roadmap
+    </button>
+    
+    <button onClick={() => handleRepostMod(post)} className={`text-sm font-semibold transition-colors cursor-pointer ml-auto ${dm ? 'text-indigo-400 hover:text-indigo-300' : 'text-[#0f1d3d] hover:text-[#1d356b]'}`}>🔄 Repost</button>
+</div>
 
                                     {/* ----------------- */}
                                     {/* COMMENTS SECTION */}

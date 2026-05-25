@@ -4,11 +4,9 @@ import LandingPage from './components/LandingPage';
 import Login from './components/Login';
 import Register from './components/Register';
 import Feed from './components/Feed';
+import Profile from './components/Profile';
+import BlueprintViewer from './components/BlueprintViewer';
 
-// ==========================================
-// PROTECTED ROUTE WRAPPER
-// Redirects to /login if no token found
-// ==========================================
 const ProtectedRoute = ({ children }) => {
     const token = localStorage.getItem('token');
     if (!token) {
@@ -16,13 +14,6 @@ const ProtectedRoute = ({ children }) => {
     }
     return children;
 };
-
-// Placeholder for the upcoming Profile Dashboard
-const ProfilePlaceholder = () => (
-    <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center">
-        <h1 className="text-3xl font-bold">Personal Dashboard coming soon!</h1>
-    </div>
-);
 
 export default function App() {
     return (
@@ -46,12 +37,20 @@ export default function App() {
                     path="/profile"
                     element={
                         <ProtectedRoute>
-                            <ProfilePlaceholder />
+                            <Profile />
                         </ProtectedRoute>
                     }
                 />
+                <Route 
+                    path="/blueprint/:id" 
+                    element={
+                        <ProtectedRoute>
+                            <BlueprintViewer />
+                        </ProtectedRoute>
+                    } 
+                />
 
-                {/* Catch-all: redirect unknown routes to landing page */}
+                {/* Catch-all */}
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
         </Router>

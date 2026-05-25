@@ -1,6 +1,6 @@
 package com.peerpath.backend.repository;
 
-import com.peerpath.backend.entity.FollowPath;
+import com.peerpath.backend.entity.PathProgress;
 import com.peerpath.backend.entity.Post;
 import com.peerpath.backend.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -10,10 +10,8 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface FollowPathRepository extends JpaRepository<FollowPath, Long> {
-    Optional<FollowPath> findByUserAndPost(User user, Post post);
+public interface PathProgressRepository extends JpaRepository<PathProgress, Long> {
+    Optional<PathProgress> findByUserAndPost(User user, Post post);
 
-    List<FollowPath> findByPost(Post post);
-
-    List<FollowPath> findByUser(User user);
+    List<PathProgress> findByPost(Post post);
 }

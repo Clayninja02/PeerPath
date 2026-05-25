@@ -5,55 +5,61 @@ import java.time.LocalDateTime;
 import org.hibernate.annotations.CreationTimestamp;
 
 @Entity
-@Table(name = "path_progress", uniqueConstraints = {
-    @UniqueConstraint(columnNames = {"follow_id", "resource_id"})
-})
+@Table(name = "path_progress")
 public class PathProgress {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "progress_id")
-    private Long progressId;
+    private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "follow_id", nullable = false)
-    private FollowPath followPath;
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "resource_id", nullable = false)
-    private Resource resource;
+    @JoinColumn(name = "post_id", nullable = false)
+    private Post post;
 
-    @Column(name = "is_completed", nullable = false)
-    private boolean isCompleted = false;
-
-    @Column(name = "completed_at")
-    private LocalDateTime completedAt;
-
-    @Column(name = "time_to_completion")
-    private Integer timeToCompletion; // Time spent on this step
+    @Column(name = "completed_steps", columnDefinition = "TEXT")
+    private String completedSteps = "";
 
     @CreationTimestamp
-    @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt;
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
 
-    // --- GETTERS AND SETTERS ---
-    public Long getProgressId() { return progressId; }
-    public void setProgressId(Long progressId) { this.progressId = progressId; }
+    public Long getId() {
+        return id;
+    }
 
-    public FollowPath getFollowPath() { return followPath; }
-    public void setFollowPath(FollowPath followPath) { this.followPath = followPath; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public Resource getResource() { return resource; }
-    public void setResource(Resource resource) { this.resource = resource; }
+    public User getUser() {
+        return user;
+    }
 
-    public boolean isCompleted() { return isCompleted; }
-    public void setCompleted(boolean completed) { this.isCompleted = completed; }
+    public void setUser(User user) {
+        this.user = user;
+    }
 
-    public LocalDateTime getCompletedAt() { return completedAt; }
-    public void setCompletedAt(LocalDateTime completedAt) { this.completedAt = completedAt; }
+    public Post getPost() {
+        return post;
+    }
 
-    public Integer getTimeToCompletion() { return timeToCompletion; }
-    public void setTimeToCompletion(Integer timeToCompletion) { this.timeToCompletion = timeToCompletion; }
+    public void setPost(Post post) {
+        this.post = post;
+    }
 
-    public LocalDateTime getCreatedAt() { return createdAt; }
+    public String getCompletedSteps() {
+        return completedSteps;
+    }
+
+    public void setCompletedSteps(String completedSteps) {
+        this.completedSteps = completedSteps;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
 }

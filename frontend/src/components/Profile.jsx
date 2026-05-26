@@ -1,21 +1,27 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../api';
 
 export default function Profile() {
+    const location = useLocation();
+    const navigate = useNavigate();
+
+    // 1. GLOBAL STATES
     const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
     const [user] = useState(() => {
         try { return JSON.parse(localStorage.getItem('user')) || { u_name: 'Student', email: '' }; }
         catch { return { u_name: 'Student', email: '' }; }
     });
 
-    const [activeTab, setActiveTab] = useState('my-blueprints'); 
+    // 2. PROFILE STATES
     const [myPosts, setMyPosts] = useState([]);
     const [savedPosts, setSavedPosts] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
 
-    const navigate = useNavigate();
+    // FIX: Single Source of Truth for the Active Tab (No useEffect or useState needed!)
+    const activeTab = location.state?.tab || 'my-blueprints';
 
+    // 3. FETCH DATA
     useEffect(() => {
         const token = localStorage.getItem('token');
         if (!token) { navigate('/login'); return; }
@@ -44,6 +50,7 @@ export default function Profile() {
         return () => { isMounted = false; };
     }, [navigate]);
 
+    // 4. HANDLERS
     const toggleTheme = () => {
         const newMode = !darkMode;
         setDarkMode(newMode);
@@ -88,9 +95,12 @@ export default function Profile() {
                 </div>
                 <nav className="flex-1 px-4 py-6 space-y-2">
                     <button onClick={() => navigate('/feed')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all duration-200 ${dm ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-200' : 'text-slate-500 hover:bg-slate-100 hover:text-[#0f1d3d]'}`}>
-                        <span className="text-xl">🏠</span> Home
+                        <span className="text-xl">🏠</span> Home Feed
                     </button>
-                    <button onClick={() => {}} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all duration-200 ${dm ? 'bg-indigo-600 text-white shadow-md' : 'bg-[#0f1d3d] text-white shadow-md'}`}>
+                    <button onClick={() => navigate('/roadmaps')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all duration-200 ${dm ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-200' : 'text-slate-500 hover:bg-slate-100 hover:text-[#0f1d3d]'}`}>
+                        <span className="text-xl">📐</span> Peer Roadmaps
+                    </button>
+                    <button className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all duration-200 ${dm ? 'bg-indigo-600 text-white shadow-md' : 'bg-[#0f1d3d] text-white shadow-md'}`}>
                         <span className="text-xl">👤</span> My Profile
                     </button>
                 </nav>
@@ -131,14 +141,15 @@ export default function Profile() {
                         </div>
 
                         <div className="flex gap-4 mb-6 border-b border-slate-300/20 pb-4">
+                            {/* FIX: Tab buttons now use navigate(..., replace) to update the URL state cleanly without history bloat */}
                             <button 
-                                onClick={() => setActiveTab('my-blueprints')}
+                                onClick={() => navigate('.', { state: { tab: 'my-blueprints' }, replace: true })}
                                 className={`px-4 py-2 font-bold rounded-xl transition-all ${activeTab === 'my-blueprints' ? (dm ? 'bg-slate-800 text-white' : 'bg-slate-200 text-slate-900') : (dm ? 'text-slate-500 hover:text-slate-300' : 'text-slate-500 hover:text-slate-700')}`}
                             >
                                 📐 My Blueprints
                             </button>
                             <button 
-                                onClick={() => setActiveTab('saved')}
+                                onClick={() => navigate('.', { state: { tab: 'saved' }, replace: true })}
                                 className={`px-4 py-2 font-bold rounded-xl transition-all ${activeTab === 'saved' ? (dm ? 'bg-slate-800 text-white' : 'bg-slate-200 text-slate-900') : (dm ? 'text-slate-500 hover:text-slate-300' : 'text-slate-500 hover:text-slate-700')}`}
                             >
                                 💾 Saved Materials
@@ -183,7 +194,6 @@ export default function Profile() {
                                             </button>
                                         )}
                                         
-                                        {/* FIX: Ensure we only navigate if post.id exists */}
                                         <button onClick={() => { if (post.id) navigate(`/blueprint/${post.id}`); }} className={`px-3 py-1.5 rounded-lg text-xs font-bold text-white shadow-sm transition-transform hover:scale-105 ${dm ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-[#0f1d3d] hover:bg-[#1a2f5c]'}`}>
                                             📖 Start Roadmap
                                         </button>

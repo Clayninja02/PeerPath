@@ -14,4 +14,6 @@ public interface PathProgressRepository extends JpaRepository<PathProgress, Long
     Optional<PathProgress> findByUserAndPost(User user, Post post);
 
     List<PathProgress> findByPost(Post post);
+
+    List<PathProgress> findByUser(User user);
 }

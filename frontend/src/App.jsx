@@ -6,6 +6,7 @@ import Register from './components/Register';
 import Feed from './components/Feed';
 import Profile from './components/Profile';
 import BlueprintViewer from './components/BlueprintViewer';
+import Roadmaps from './components/Roadmaps';
 
 const ProtectedRoute = ({ children }) => {
     const token = localStorage.getItem('token');
@@ -50,8 +51,21 @@ export default function App() {
                     } 
                 />
 
+                <Route
+                    path="/roadmaps"
+                    element={
+                        <ProtectedRoute>
+                            <Roadmaps />
+                        </ProtectedRoute>
+                    }
+                />
+
                 {/* Catch-all */}
-                <Route path="*" element={<Navigate to="/" replace />} />
+                <Route path="*" 
+                element={
+                    <Navigate to="/" replace />
+                } 
+                />
             </Routes>
         </Router>
     );

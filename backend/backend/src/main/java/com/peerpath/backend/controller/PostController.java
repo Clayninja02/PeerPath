@@ -101,6 +101,28 @@ public class PostController {
         return ResponseEntity.ok(savedPosts);
     }
 
+    // ==========================================
+    // GET ACTIVE PEER ROADMAPS
+    // ==========================================
+    @GetMapping("/roadmaps")
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> getActiveRoadmaps() {
+        User currentUser = getAuthenticatedUser();
+        if (currentUser == null)
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+
+        // Fetches posts the user has started interacting with (checked at least 1 box)
+        List<Map<String, Object>> roadmaps = pathProgressRepository.findByUser(currentUser)
+                .stream()
+                .filter(prog -> prog.getCompletedSteps() != null && !prog.getCompletedSteps().trim().isEmpty())
+                .map(prog -> Map.of(
+                        "post", prog.getPost(),
+                        "completedSteps", prog.getCompletedSteps()))
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(roadmaps);
+    }
+
     @PostMapping
     @Transactional
     public ResponseEntity<?> createPost(@RequestBody PostRequest payload) {

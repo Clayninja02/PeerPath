@@ -12,7 +12,6 @@ export default function Feed() {
         catch { return { u_name: 'Student' }; }
     });
     
-    const [activeTab, setActiveTab] = useState('feed');
     const [posts, setPosts] = useState([]);
     const [isLoadingPosts, setIsLoadingPosts] = useState(true);
     
@@ -40,6 +39,10 @@ export default function Feed() {
     const [editingCommentId, setEditingCommentId] = useState(null);
     const [editCommentText, setEditCommentText] = useState('');
     const [openMenuPostId, setOpenMenuPostId] = useState(null);
+
+    // NEW: Search & Discovery States
+    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedSkill, setSelectedSkill] = useState('All');
 
     const navigate = useNavigate();
 
@@ -86,6 +89,7 @@ export default function Feed() {
         setEditingPostId(null);
         setGuideTitle(''); 
         setGuideDesc(''); 
+        setSkillInput('');
         setSkills([]); 
         setSteps([]);
     };
@@ -111,11 +115,20 @@ export default function Feed() {
             alert('Please provide a Title and add at least one Step Card.');
             return;
         }
+
+        // FIX: Ensure skill is captured even if they forgot to press 'Enter'
+        let finalSkill = 'General';
+        if (skills.length > 0) {
+            finalSkill = skills[0];
+        } else if (skillInput.trim()) {
+            finalSkill = skillInput.trim();
+        }
+
         setIsPublishing(true);
         const payload = {
             title: guideTitle,
             description: guideDesc,
-            skillName: skills[0] || 'General Engineering',
+            skillName: finalSkill,
             resources: steps.map((step, idx) => ({
                 title: step.title || `Step ${idx + 1}`, 
                 url: step.url, 
@@ -297,7 +310,25 @@ export default function Feed() {
         }
     };
 
+    // ==========================================
+    // FILTERING LOGIC
+    // ==========================================
     const dm = darkMode;
+    
+    // Dynamic Unique Skills
+    const uniqueSkills = ['All', ...new Set(posts.map(p => p.skill?.sName).filter(Boolean))];
+
+    const filteredPosts = posts.filter(post => {
+        const lowerSearch = searchQuery.toLowerCase();
+        const matchesSearch = 
+            (post.title || '').toLowerCase().includes(lowerSearch) ||
+            (post.description || '').toLowerCase().includes(lowerSearch) ||
+            (post.authorName || '').toLowerCase().includes(lowerSearch);
+            
+        const matchesSkill = selectedSkill === 'All' || (post.skill?.sName === selectedSkill);
+
+        return matchesSearch && matchesSkill;
+    });
 
     // ==========================================
     // 10. RENDER UI
@@ -312,35 +343,56 @@ export default function Feed() {
                     <span className={`text-2xl font-bold tracking-tight ${dm ? 'text-white' : 'text-[#0f1d3d]'}`}>PeerPath</span>
                 </div>
                 <nav className="flex-1 px-4 py-6 space-y-2">
-                    {[
-                        { id: 'feed', icon: '🏠', label: 'Home' },
-                        { id: 'roadmaps', icon: '📐', label: 'Peer Roadmaps' },
-                        { id: 'saved', icon: '💾', label: 'Saved Materials' },
-                    ].map((tab) => (
-                        <button
-                            key={tab.id} 
-                            onClick={() => setActiveTab(tab.id)}
-                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all duration-200 ${
-                                activeTab === tab.id ? dm ? 'bg-indigo-600 text-white shadow-md' : 'bg-[#0f1d3d] text-white shadow-md'
-                                    : dm ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-200' : 'text-slate-500 hover:bg-slate-100 hover:text-[#0f1d3d]'
-                            }`}
-                        >
-                            <span className="text-xl">{tab.icon}</span>{tab.label}
-                        </button>
-                    ))}
+                    <button className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all duration-200 ${dm ? 'bg-indigo-600 text-white shadow-md' : 'bg-[#0f1d3d] text-white shadow-md'}`}>
+                        <span className="text-xl">🏠</span> Home Feed
+                    </button>
+                    {/* FIX: Set up future path for Peer Roadmaps */}
+                    <button onClick={() => navigate('/roadmaps')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all duration-200 ${dm ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-200' : 'text-slate-500 hover:bg-slate-100 hover:text-[#0f1d3d]'}`}>
+                        <span className="text-xl">📐</span> Peer Roadmaps
+                    </button>
+                    {/* FIX: Navigates straight to Profile where Saved Materials are displayed */}
+                    <button onClick={() => navigate('/profile', { state: { tab: 'saved' } })} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all duration-200 ${dm ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-200' : 'text-slate-500 hover:bg-slate-100 hover:text-[#0f1d3d]'}`}>
+    <span className="text-xl">💾</span> Saved Materials
+</button>
                 </nav>
             </aside>
 
             {/* MAIN CONTENT */}
             <main className="flex-1 ml-72 flex flex-col h-screen overflow-hidden">
                 
-                {/* HEADER */}
+                {/* HEADER (FIX: Added Search Bar here) */}
                 <header className={`h-20 flex items-center justify-between px-8 border-b z-10 transition-colors duration-500 ${dm ? 'bg-slate-900/80 border-slate-800 backdrop-blur-md' : 'bg-white/80 border-slate-200 backdrop-blur-md'}`}>
-                    <div>
-                        <h1 className={`text-xl font-bold capitalize ${dm ? 'text-white' : 'text-slate-800'}`}>{activeTab === 'feed' ? 'Home' : activeTab.replace('-', ' ')}</h1>
-                        <p className={`text-sm font-medium ${dm ? 'text-slate-400' : 'text-slate-500'}`}>Welcome, {user.u_name || 'Student'}</p>
+                    <div className="w-1/4">
+                        <h1 className={`text-xl font-bold capitalize ${dm ? 'text-white' : 'text-slate-800'}`}>Home Feed</h1>
+                        <p className={`text-sm font-medium truncate ${dm ? 'text-slate-400' : 'text-slate-500'}`}>Welcome, {user.u_name || 'Student'}</p>
                     </div>
-                    <div className="flex items-center gap-6">
+
+                    {/* NEW CENTERED SEARCH & FILTER */}
+                    <div className="flex-1 max-w-2xl flex items-center gap-2 px-4">
+                        <div className="flex-1 relative">
+                            <span className="absolute left-3 top-2 text-slate-400">🔍</span>
+                            <input 
+                                type="text" 
+                                placeholder="Search blueprints..." 
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className={`w-full pl-9 pr-4 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 ${dm ? 'bg-slate-950 text-white border-slate-800 focus:ring-indigo-500/50' : 'bg-slate-100 text-slate-800 border-slate-200 focus:ring-[#0f1d3d]/20'} border`}
+                            />
+                        </div>
+                        <div className="w-48">
+                            <select 
+                                value={selectedSkill}
+                                onChange={(e) => setSelectedSkill(e.target.value)}
+                                className={`w-full px-3 py-2 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 border cursor-pointer truncate ${dm ? 'bg-slate-950 text-indigo-400 border-slate-800 focus:ring-indigo-500/50' : 'bg-slate-100 text-indigo-600 border-slate-200 focus:ring-[#0f1d3d]/20'}`}
+                            >
+                                {uniqueSkills.map(skill => (
+                                    <option key={skill} value={skill}>{skill === 'All' ? 'All Skills' : skill}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="w-1/4 flex justify-end items-center gap-6">
                         <div onClick={toggleTheme} className={`w-14 h-7 rounded-full p-1 cursor-pointer transition-colors duration-300 relative shadow-inner ${dm ? 'bg-indigo-600' : 'bg-slate-200'}`}>
                             <div className={`w-5 h-5 rounded-full bg-white shadow-md flex items-center justify-center text-[10px] select-none transition-transform duration-300 ease-out ${dm ? 'translate-x-7' : 'translate-x-0'}`}>{dm ? '🌙' : '☀️'}</div>
                         </div>
@@ -355,18 +407,20 @@ export default function Feed() {
                 <div className="flex-1 overflow-y-auto p-8">
                     <div className="max-w-4xl mx-auto">
                         
-                        <div className="flex justify-end mb-8">
+                        <div className="flex justify-between items-center mb-8">
+                            <h2 className="text-xl font-bold">Active Engineering Nodes</h2>
                             <button onClick={() => { setEditingPostId(null); setShowCreateModal(true); }} className={`px-5 py-3 rounded-xl font-bold text-white shadow-md flex items-center gap-2 hover:scale-[1.02] active:scale-95 transition-transform ${dm ? 'bg-indigo-600' : 'bg-[#0f1d3d]'}`}>
                                 ➕ Create a New Guide
                             </button>
                         </div>
 
+                        {/* RENDER FILTERED POSTS */}
                         {isLoadingPosts ? (
                             <div className="text-center py-12"><p className="text-slate-500 animate-pulse">Synchronizing network feed modules...</p></div>
-                        ) : posts.length === 0 ? (
-                            <div className="text-center py-12"><p className="text-slate-500">No blueprints shared yet. Be the first to create one!</p></div>
+                        ) : filteredPosts.length === 0 ? (
+                            <div className="text-center py-12"><p className="text-slate-500">{posts.length > 0 ? "No blueprints match your search criteria." : "No blueprints shared yet. Be the first to create one!"}</p></div>
                         ) : (
-                            posts.map((post) => (
+                            filteredPosts.map((post) => (
                                 <div key={post.id} className={`p-6 rounded-3xl border mb-6 shadow-sm flex flex-col transition-all duration-500 relative ${dm ? 'bg-slate-900 border-slate-800/80' : 'bg-white border-slate-200'}`}>
                                     
                                     {/* POST HEADER */}
@@ -379,6 +433,7 @@ export default function Feed() {
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-3">
+                                            {/* Fix: Tags now dynamically render proper inputted skill */}
                                             <span className={`text-xs px-3 py-1 rounded-full font-semibold border ${dm ? 'bg-slate-950 border-slate-800 text-indigo-400' : 'bg-slate-100 border-slate-200 text-[#0f1d3d]'}`}>
                                                 #{post.skill?.sName || 'General'}
                                             </span>
@@ -434,9 +489,8 @@ export default function Feed() {
                                         <button onClick={() => handleLikePost(post.id)} className={`text-sm font-semibold transition-colors cursor-pointer ${dm ? 'text-slate-400 hover:text-rose-400' : 'text-slate-500 hover:text-rose-600'}`}>❤️ {post.likes || 0} Likes</button>
                                         <button onClick={() => toggleCommentsBox(post.id)} className={`text-sm font-semibold transition-colors cursor-pointer ${dm ? 'text-slate-400 hover:text-indigo-400' : 'text-slate-500 hover:text-indigo-600'}`}>💬 {post.replies || 0} Replies</button>
                                         <button onClick={() => toggleChatroomBox(post.id)} className={`text-sm font-semibold transition-colors cursor-pointer ${dm ? 'text-slate-400 hover:text-teal-400' : 'text-slate-500 hover:text-teal-600'}`}>⚡ Live Chat</button>
-                                        <button onClick={() => handleFollowPost(post.id)} className={`text-sm font-semibold transition-colors cursor-pointer ${dm ? 'text-slate-400 hover:text-amber-400' : 'text-slate-500 hover:text-amber-600'}`}>⭐ Follow Progress</button>
+                                        <button onClick={() => handleFollowPost(post.id)} className={`text-sm font-semibold transition-colors cursor-pointer ${dm ? 'text-slate-400 hover:text-amber-400' : 'text-slate-500 hover:text-amber-600'}`}>⭐ Save Material</button>
                                         
-                                        {/* FIX: Ensure we only navigate if post.id exists */}
                                         <button onClick={() => { if (post.id) navigate(`/blueprint/${post.id}`); }} className={`px-4 py-1.5 rounded-lg text-sm font-bold text-white transition-transform hover:scale-105 ${dm ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-[#0f1d3d] hover:bg-[#1a2f5c]'}`}>
                                             📖 Start Roadmap
                                         </button>

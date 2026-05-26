@@ -12,23 +12,32 @@ export default function BlueprintViewer() {
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
+        if (!id) {
+            navigate('/feed');
+            return;
+        }
+
         let isMounted = true;
 
         const fetchData = async () => {
             try {
+                // Fetch the post and the user's progress concurrently
                 const [postData, progressData] = await Promise.all([
                     api.get(`/posts/${id}`),
-                    api.get(`/posts/${id}/progress`)
+                    api.get(`/posts/${id}/progress`).catch(() => ({ completedSteps: "" })) // Safe fallback if progress doesn't exist yet
                 ]);
 
-                if (isMounted) {
+                if (isMounted && postData) {
                     setPost(postData);
+                    
                     if (progressData && progressData.completedSteps && progressData.completedSteps.trim() !== '') {
                         const parsedSteps = new Set(
                             progressData.completedSteps.split(',').map(num => parseInt(num, 10))
                         );
                         setCompletedSteps(parsedSteps);
                     }
+                } else if (isMounted && !postData) {
+                     navigate('/feed');
                 }
             } catch (error) {
                 console.error("Failed to load blueprint:", error);
@@ -42,7 +51,6 @@ export default function BlueprintViewer() {
         return () => { isMounted = false; };
     }, [id, navigate]);
 
-    // FIX: Added the toggle theme function so setDarkMode is used!
     const toggleTheme = () => {
         const newMode = !darkMode;
         setDarkMode(newMode);
@@ -74,7 +82,9 @@ export default function BlueprintViewer() {
     }
 
     const dm = darkMode;
-    const totalSteps = post.resources ? post.resources.length : 0;
+    // Safely check for resources array
+    const resources = Array.isArray(post.resources) ? post.resources : [];
+    const totalSteps = resources.length;
     const completedCount = completedSteps.size;
     const progressPercentage = totalSteps === 0 ? 0 : Math.round((completedCount / totalSteps) * 100);
 
@@ -87,7 +97,6 @@ export default function BlueprintViewer() {
                 </button>
                 <div className={`text-xl font-bold ${dm ? 'text-white' : 'text-[#0f1d3d]'}`}>PeerPath Active Session</div>
                 
-                {/* FIX: Added the Theme Toggle Button to the top right */}
                 <div className="w-20 flex justify-end">
                     <div onClick={toggleTheme} className={`w-14 h-7 rounded-full p-1 cursor-pointer transition-colors duration-300 relative shadow-inner ${dm ? 'bg-indigo-600' : 'bg-slate-200'}`}>
                         <div className={`w-5 h-5 rounded-full bg-white shadow-md flex items-center justify-center text-[10px] select-none transition-transform duration-300 ease-out ${dm ? 'translate-x-7' : 'translate-x-0'}`}>{dm ? '🌙' : '☀️'}</div>
@@ -129,12 +138,12 @@ export default function BlueprintViewer() {
                     )}
 
                     <div className="space-y-4">
-                        {post.resources?.map((res, index) => {
+                        {resources.map((res, index) => {
                             const isCompleted = completedSteps.has(res.orderNumber || index + 1);
                             
                             return (
                                 <div 
-                                    key={res.id} 
+                                    key={res.id || index} 
                                     className={`p-5 rounded-2xl border flex items-center justify-between gap-4 transition-all duration-300 ${
                                         isCompleted 
                                             ? (dm ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-emerald-50 border-emerald-200')

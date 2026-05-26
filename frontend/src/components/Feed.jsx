@@ -184,7 +184,6 @@ export default function Feed() {
         if (!window.confirm("Are you sure you want to hide this post?")) return;
         try {
             await api.post(`/posts/${postId}/hide`);
-            // Instantly remove it from the UI. The DB filter will keep it hidden on next fetch.
             setPosts(prev => prev.filter(p => p.id !== postId));
         } catch (error) {
             alert('Failed to hide post: ' + error.message);
@@ -215,7 +214,7 @@ export default function Feed() {
     // ==========================================
     // 8. COMMENTS SYSTEM
     // ==========================================
-const toggleCommentsBox = async (postId) => {
+    const toggleCommentsBox = async (postId) => {
         if (expandedCommentsPostId === postId) { 
             setExpandedCommentsPostId(null); 
             return; 
@@ -225,7 +224,7 @@ const toggleCommentsBox = async (postId) => {
             const data = await api.get(`/posts/${postId}/comments`);
             setPostComments(prev => ({ ...prev, [postId]: data || [] }));
         } catch (error) { 
-            console.error("Failed to load comments:", error); // <-- FIX HERE
+            console.error("Failed to load comments:", error); 
             setPostComments(prev => ({ ...prev, [postId]: [] })); 
         }
     };
@@ -271,7 +270,7 @@ const toggleCommentsBox = async (postId) => {
     // ==========================================
     // 9. LIVE CHAT SYSTEM
     // ==========================================
-const toggleChatroomBox = async (postId) => {
+    const toggleChatroomBox = async (postId) => {
         if (activeChatPostId === postId) { 
             setActiveChatPostId(null); 
             return; 
@@ -281,7 +280,7 @@ const toggleChatroomBox = async (postId) => {
             const data = await api.get(`/posts/${postId}/chat`);
             setPostChatMessages(prev => ({ ...prev, [postId]: data || [] }));
         } catch (error) { 
-            console.error("Failed to load chat messages:", error); // <-- FIX HERE
+            console.error("Failed to load chat messages:", error); 
             setPostChatMessages(prev => ({ ...prev, [postId]: [] })); 
         }
     };
@@ -432,17 +431,18 @@ const toggleChatroomBox = async (postId) => {
 
                                     {/* POST ACTIONS BUTTONS */}
                                     <div className="flex flex-wrap items-center gap-6 pt-4 border-t border-slate-300/10">
-    <button onClick={() => handleLikePost(post.id)} className={`text-sm font-semibold transition-colors cursor-pointer ${dm ? 'text-slate-400 hover:text-rose-400' : 'text-slate-500 hover:text-rose-600'}`}>❤️ {post.likes || 0} Likes</button>
-    <button onClick={() => toggleCommentsBox(post.id)} className={`text-sm font-semibold transition-colors cursor-pointer ${dm ? 'text-slate-400 hover:text-indigo-400' : 'text-slate-500 hover:text-indigo-600'}`}>💬 {post.replies || 0} Replies</button>
-    <button onClick={() => toggleChatroomBox(post.id)} className={`text-sm font-semibold transition-colors cursor-pointer ${dm ? 'text-slate-400 hover:text-teal-400' : 'text-slate-500 hover:text-teal-600'}`}>⚡ Live Chat</button>
-    <button onClick={() => handleFollowPost(post.id)} className={`text-sm font-semibold transition-colors cursor-pointer ${dm ? 'text-slate-400 hover:text-amber-400' : 'text-slate-500 hover:text-amber-600'}`}>⭐ Follow Progress</button>
-
-    <button onClick={() => navigate(`/blueprint/${post.id}`)} className={`px-4 py-1.5 rounded-lg text-sm font-bold text-white transition-transform hover:scale-105 ${dm ? 'bg-indigo-600' : 'bg-[#0f1d3d]'}`}>
-        📖 Start Roadmap
-    </button>
-    
-    <button onClick={() => handleRepostMod(post)} className={`text-sm font-semibold transition-colors cursor-pointer ml-auto ${dm ? 'text-indigo-400 hover:text-indigo-300' : 'text-[#0f1d3d] hover:text-[#1d356b]'}`}>🔄 Repost</button>
-</div>
+                                        <button onClick={() => handleLikePost(post.id)} className={`text-sm font-semibold transition-colors cursor-pointer ${dm ? 'text-slate-400 hover:text-rose-400' : 'text-slate-500 hover:text-rose-600'}`}>❤️ {post.likes || 0} Likes</button>
+                                        <button onClick={() => toggleCommentsBox(post.id)} className={`text-sm font-semibold transition-colors cursor-pointer ${dm ? 'text-slate-400 hover:text-indigo-400' : 'text-slate-500 hover:text-indigo-600'}`}>💬 {post.replies || 0} Replies</button>
+                                        <button onClick={() => toggleChatroomBox(post.id)} className={`text-sm font-semibold transition-colors cursor-pointer ${dm ? 'text-slate-400 hover:text-teal-400' : 'text-slate-500 hover:text-teal-600'}`}>⚡ Live Chat</button>
+                                        <button onClick={() => handleFollowPost(post.id)} className={`text-sm font-semibold transition-colors cursor-pointer ${dm ? 'text-slate-400 hover:text-amber-400' : 'text-slate-500 hover:text-amber-600'}`}>⭐ Follow Progress</button>
+                                        
+                                        {/* FIX: Ensure we only navigate if post.id exists */}
+                                        <button onClick={() => { if (post.id) navigate(`/blueprint/${post.id}`); }} className={`px-4 py-1.5 rounded-lg text-sm font-bold text-white transition-transform hover:scale-105 ${dm ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-[#0f1d3d] hover:bg-[#1a2f5c]'}`}>
+                                            📖 Start Roadmap
+                                        </button>
+                                        
+                                        <button onClick={() => handleRepostMod(post)} className={`text-sm font-semibold transition-colors cursor-pointer ml-auto ${dm ? 'text-indigo-400 hover:text-indigo-300' : 'text-[#0f1d3d] hover:text-[#1d356b]'}`}>🔄 Repost</button>
+                                    </div>
 
                                     {/* ----------------- */}
                                     {/* COMMENTS SECTION */}

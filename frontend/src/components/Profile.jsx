@@ -9,7 +9,7 @@ export default function Profile() {
         catch { return { u_name: 'Student', email: '' }; }
     });
 
-    const [activeTab, setActiveTab] = useState('my-blueprints'); // 'my-blueprints' or 'saved'
+    const [activeTab, setActiveTab] = useState('my-blueprints'); 
     const [myPosts, setMyPosts] = useState([]);
     const [savedPosts, setSavedPosts] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -24,7 +24,6 @@ export default function Profile() {
         const fetchProfileData = async () => {
             setIsLoading(true);
             try {
-                // Fetch both endpoints concurrently for maximum speed
                 const [myPostsData, savedPostsData] = await Promise.all([
                     api.get('/posts/me'),
                     api.get('/posts/saved')
@@ -57,7 +56,6 @@ export default function Profile() {
         navigate('/login');
     };
 
-    // Allows users to quickly unfollow directly from the profile page
     const handleRemoveBookmark = async (postId) => {
         try {
             await api.post(`/posts/${postId}/follow`);
@@ -83,7 +81,6 @@ export default function Profile() {
     return (
         <div className={`min-h-screen flex transition-colors duration-500 ${dm ? 'bg-[#0b1121] text-slate-200' : 'bg-slate-50 text-slate-800'}`}>
             
-            {/* SIDEBAR */}
             <aside className={`w-72 fixed h-full border-r flex flex-col z-20 transition-colors duration-500 ${dm ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
                 <div className={`h-20 flex items-center gap-3 px-6 border-b ${dm ? 'border-slate-800' : 'border-slate-200'}`}>
                     <div className={`w-10 h-10 rounded-xl font-bold flex items-center justify-center text-lg shadow-md ${dm ? 'bg-white text-[#0f1d3d]' : 'bg-[#0f1d3d] text-white'}`}>P²</div>
@@ -99,9 +96,7 @@ export default function Profile() {
                 </nav>
             </aside>
 
-            {/* MAIN CONTENT */}
             <main className="flex-1 ml-72 flex flex-col h-screen overflow-hidden">
-                {/* HEADER */}
                 <header className={`h-20 flex items-center justify-between px-8 border-b z-10 transition-colors duration-500 ${dm ? 'bg-slate-900/80 border-slate-800 backdrop-blur-md' : 'bg-white/80 border-slate-200 backdrop-blur-md'}`}>
                     <h1 className={`text-xl font-bold ${dm ? 'text-white' : 'text-slate-800'}`}>Profile Center</h1>
                     <div className="flex items-center gap-6">
@@ -117,7 +112,6 @@ export default function Profile() {
                 <div className="flex-1 overflow-y-auto p-8">
                     <div className="max-w-4xl mx-auto">
                         
-                        {/* PROFILE CARD */}
                         <div className={`p-8 rounded-3xl border mb-8 shadow-sm flex items-center gap-6 ${dm ? 'bg-slate-900 border-slate-800/80' : 'bg-white border-slate-200'}`}>
                             <div className={`w-24 h-24 rounded-full flex items-center justify-center font-bold text-4xl shadow-inner ${dm ? 'bg-slate-800 text-indigo-400' : 'bg-indigo-50 text-indigo-600'}`}>
                                 {user.u_name ? user.u_name.charAt(0).toUpperCase() : 'S'}
@@ -136,7 +130,6 @@ export default function Profile() {
                             </div>
                         </div>
 
-                        {/* TABS */}
                         <div className="flex gap-4 mb-6 border-b border-slate-300/20 pb-4">
                             <button 
                                 onClick={() => setActiveTab('my-blueprints')}
@@ -152,7 +145,6 @@ export default function Profile() {
                             </button>
                         </div>
 
-                        {/* LIST RENDERER */}
                         {isLoading ? (
                             <div className="text-center py-12"><p className="text-slate-500 animate-pulse">Loading secure data module...</p></div>
                         ) : currentData.length === 0 ? (
@@ -180,26 +172,26 @@ export default function Profile() {
                                         <p className="text-sm text-slate-500 line-clamp-1">{post.description}</p>
                                     </div>
                                     
-<div className="flex flex-col gap-2 shrink-0">
-    {activeTab === 'my-blueprints' ? (
-        <button onClick={() => handleDeletePost(post.id)} className="px-3 py-1.5 rounded-lg text-xs font-bold text-rose-500 bg-rose-500/10 hover:bg-rose-500/20">
-            Delete
-        </button>
-    ) : (
-        <button onClick={() => handleRemoveBookmark(post.id)} className="px-3 py-1.5 rounded-lg text-xs font-bold text-amber-500 bg-amber-500/10 hover:bg-amber-500/20">
-            Unsave
-        </button>
-    )}
-    
-    {/* NEW START ROADMAP BUTTON */}
-    <button onClick={() => navigate(`/blueprint/${post.id}`)} className={`px-3 py-1.5 rounded-lg text-xs font-bold text-white shadow-sm transition-transform hover:scale-105 ${dm ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-[#0f1d3d] hover:bg-[#1a2f5c]'}`}>
-        📖 Start Roadmap
-    </button>
+                                    <div className="flex flex-col gap-2 shrink-0">
+                                        {activeTab === 'my-blueprints' ? (
+                                            <button onClick={() => handleDeletePost(post.id)} className="px-3 py-1.5 rounded-lg text-xs font-bold text-rose-500 bg-rose-500/10 hover:bg-rose-500/20">
+                                                Delete
+                                            </button>
+                                        ) : (
+                                            <button onClick={() => handleRemoveBookmark(post.id)} className="px-3 py-1.5 rounded-lg text-xs font-bold text-amber-500 bg-amber-500/10 hover:bg-amber-500/20">
+                                                Unsave
+                                            </button>
+                                        )}
+                                        
+                                        {/* FIX: Ensure we only navigate if post.id exists */}
+                                        <button onClick={() => { if (post.id) navigate(`/blueprint/${post.id}`); }} className={`px-3 py-1.5 rounded-lg text-xs font-bold text-white shadow-sm transition-transform hover:scale-105 ${dm ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-[#0f1d3d] hover:bg-[#1a2f5c]'}`}>
+                                            📖 Start Roadmap
+                                        </button>
 
-    <button onClick={() => navigate('/feed')} className={`px-3 py-1.5 rounded-lg text-xs font-bold ${dm ? 'bg-slate-800 text-slate-300 hover:text-white' : 'bg-slate-100 text-slate-600 hover:text-black'}`}>
-        View in Feed
-    </button>
-</div>
+                                        <button onClick={() => navigate('/feed')} className={`px-3 py-1.5 rounded-lg text-xs font-bold ${dm ? 'bg-slate-800 text-slate-300 hover:text-white' : 'bg-slate-100 text-slate-600 hover:text-black'}`}>
+                                            View in Feed
+                                        </button>
+                                    </div>
                                 </div>
                             ))
                         )}

@@ -41,6 +41,17 @@ public class AuthController {
         String email = request.get("email");
         String password = request.get("password");
 
+        // 🛡️ FIX: Add strict input validation
+        if (name == null || name.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Name is required"));
+        }
+        if (email == null || email.trim().isEmpty() || !email.contains("@")) {
+            return ResponseEntity.badRequest().body(Map.of("message", "A valid email is required"));
+        }
+        if (password == null || password.trim().length() < 6) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Password must be at least 6 characters long"));
+        }
+
         // Check if user already exists
         if (userRepository.findByEmail(email).isPresent()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -49,8 +60,8 @@ public class AuthController {
 
         // Create new User
         User user = new User();
-        user.setuName(name);
-        user.setEmail(email);
+        user.setuName(name.trim());
+        user.setEmail(email.trim().toLowerCase()); // Standardize emails to lowercase!
         user.setPassword(passwordEncoder.encode(password)); // Hash the password!
         user.setRole("user"); // Default role
 
@@ -76,7 +87,7 @@ public class AuthController {
     // ==========================================
     // 2. LOGIN ENDPOINT
     // ==========================================
-    @PostMapping("/login")
+@PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody Map<String, String> request) {
         String email = request.get("email");
         String password = request.get("password");
@@ -91,20 +102,29 @@ public class AuthController {
                     .body(Map.of("message", "Invalid credentials"));
         }
 
-        // If password is correct, fetch the user and generate token
-        User user = userRepository.findByEmail(email).get();
-        String token = jwtUtil.generateToken(email);
+        try {
+            // 🛡️ FIX: Safely extract the user or throw an exception if they vanished
+            User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User account no longer exists in database"));
+            
+            String token = jwtUtil.generateToken(email);
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("message", "Login successful!");
-        response.put("token", token);
-        response.put("user", Map.of(
-                "user_id", user.getUserId(),
-                "u_name", user.getuName(),
-                "email", user.getEmail(),
-                "role", user.getRole()
-        ));
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Login successful!");
+            response.put("token", token);
+            response.put("user", Map.of(
+                    "user_id", user.getUserId(),
+                    "u_name", user.getuName(),
+                    "email", user.getEmail(),
+                    "role", user.getRole()
+            ));
 
-        return ResponseEntity.ok(response);
+            return ResponseEntity.ok(response);
+
+        } catch (RuntimeException e) {
+            // Catch our custom exception and return a clean 401 response to React
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", e.getMessage()));
+        }
     }
 }

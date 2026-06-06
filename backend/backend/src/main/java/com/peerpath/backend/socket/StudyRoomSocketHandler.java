@@ -6,6 +6,7 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -19,21 +20,33 @@ public class StudyRoomSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         sessions.add(session);
-        System.out.println("🟢 [SOCKET] New user joined the study room! Session ID: " + session.getId());
-        session.sendMessage(new TextMessage("Welcome to the PeerPath Live Study Room!"));
+        
+        // 📥 Extract the authenticated email we saved during the Handshake
+        String userEmail = (String) session.getAttributes().get("userEmail");
+        
+        System.out.println("🟢 [SOCKET] User joined the study room: " + userEmail);
+        session.sendMessage(new TextMessage("Welcome to the PeerPath Live Study Room, " + userEmail + "!"));
     }
 
     // When a user sends a message
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
         String payload = message.getPayload();
-        System.out.println("💬 [SOCKET] Received message: " + payload);
+        
+        // 👤 Get the sender's email
+        String userEmail = (String) session.getAttributes().get("userEmail");
+        System.out.println("💬 [SOCKET] " + userEmail + " says: " + payload);
 
         // Broadcast the message to EVERYONE who is connected
         for (WebSocketSession webSocketSession : sessions) {
             if (webSocketSession.isOpen()) {
-                // Prepend a generic user label for now
-                webSocketSession.sendMessage(new TextMessage("User-" + session.getId().substring(0,4) + ": " + payload));
+                try {
+                    // Prepend the user's email so the frontend knows who sent it
+                    webSocketSession.sendMessage(new TextMessage(userEmail + ": " + payload));
+                } catch (IOException e) {
+                    System.out.println("⚠️ [SOCKET] Failed to send message to a user. Removing dead session.");
+                    sessions.remove(webSocketSession); // Also fixes the memory leak I mentioned earlier!
+                }
             }
         }
     }
@@ -42,6 +55,7 @@ public class StudyRoomSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
         sessions.remove(session);
-        System.out.println("🔴 [SOCKET] User left the study room. Session ID: " + session.getId());
+        String userEmail = (String) session.getAttributes().get("userEmail");
+        System.out.println("🔴 [SOCKET] User left the study room: " + userEmail);
     }
 }

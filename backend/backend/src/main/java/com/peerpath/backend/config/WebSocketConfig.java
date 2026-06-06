@@ -1,5 +1,6 @@
 package com.peerpath.backend.config;
 
+import com.peerpath.backend.security.JwtHandshakeInterceptor;
 import com.peerpath.backend.socket.StudyRoomSocketHandler;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
@@ -14,9 +15,14 @@ public class WebSocketConfig implements WebSocketConfigurer {
     @Autowired
     private StudyRoomSocketHandler studyRoomSocketHandler;
 
+    @Autowired
+    private JwtHandshakeInterceptor jwtHandshakeInterceptor; // 💉 Inject the new interceptor
+
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         // This opens the networking route at ws://localhost:8080/study-room
-        registry.addHandler(studyRoomSocketHandler, "/study-room").setAllowedOrigins("*");
+        registry.addHandler(studyRoomSocketHandler, "/study-room")
+                .addInterceptors(jwtHandshakeInterceptor) // 🛡️ Attach our bouncer here!
+                .setAllowedOrigins("*");
     }
 }

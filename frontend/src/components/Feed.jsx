@@ -110,39 +110,51 @@ export default function Feed() {
     // ==========================================
     // 6. POST CRUD
     // ==========================================
-    const handlePublishOrEditGuide = async () => {
+const handlePublishOrEditGuide = async () => {
         if (!guideTitle.trim() || steps.length === 0) {
             alert('Please provide a Title and add at least one Step Card.');
             return;
         }
 
-        // FIX: Ensure skill is captured even if they forgot to press 'Enter'
         let finalSkill = 'General';
-        if (skills.length > 0) {
-            finalSkill = skills[0];
-        } else if (skillInput.trim()) {
-            finalSkill = skillInput.trim();
-        }
+        if (skills.length > 0) finalSkill = skills[0];
+        else if (skillInput.trim()) finalSkill = skillInput.trim();
 
         setIsPublishing(true);
-        const payload = {
+
+        // 1. Build the JSON text data
+        const postData = {
             title: guideTitle,
             description: guideDesc,
             skillName: finalSkill,
             resources: steps.map((step, idx) => ({
-                title: step.title || `Step ${idx + 1}`, 
-                url: step.url, 
-                type: step.type, 
-                orderNumber: idx + 1
+                title: step.title || `Step ${idx + 1}`,
+                url: step.url,
+                type: step.type,
+                orderNumber: idx + 1,
+                hasFile: !!step.file // NEW: Tell the backend if a file is attached to this specific step!
             }))
         };
 
+        // 2. Package it into a FormData envelope
+        const formData = new FormData();
+        // Pack the JSON into a Blob so Spring Boot can map it automatically
+        formData.append('postData', new Blob([JSON.stringify(postData)], { type: "application/json" }));
+
+        // 3. Append physical files in order
+        steps.forEach(step => {
+            if (step.file) {
+                formData.append('files', step.file);
+            }
+        });
+
         try {
             if (editingPostId) {
-                const updatedPost = await api.put(`/posts/${editingPostId}`, payload);
+                // Notice we are passing formData instead of payload now!
+                const updatedPost = await api.put(`/posts/${editingPostId}`, formData);
                 setPosts(prev => prev.map(p => p.id === editingPostId ? updatedPost : p));
             } else {
-                const newPost = await api.post('/posts', payload);
+                const newPost = await api.post('/posts', formData);
                 setPosts(prev => [newPost, ...prev]);
             }
             resetModal();
@@ -152,7 +164,6 @@ export default function Feed() {
             setIsPublishing(false); 
         }
     };
-
     const handleEditPostInit = (post) => {
         setEditingPostId(post.id);
         setGuideTitle(post.title);
